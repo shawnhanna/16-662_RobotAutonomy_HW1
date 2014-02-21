@@ -10,11 +10,13 @@ import math
 import numpy as np
 np.random.seed(0)
 import scipy
+import random
 
 # OpenRAVE
 import openravepy
 #openravepy.RaveInitialize(True, openravepy.DebugLevel.Debug)
 
+import IPython
 
 curr_path = os.getcwd()
 relative_ordata = '/models'
@@ -97,25 +99,60 @@ class RoboHandler:
   
   # order the grasps - call eval grasp on each, set the 'performance' index, and sort
   def order_grasps(self):
+    print "calculating best non-noisy grasps"
     self.grasps_ordered = self.grasps.copy() #TODO: you should change the order of self.grasps_ordered
+    counter = 0
     for grasp in self.grasps_ordered:
       grasp[self.graspindices.get('performance')] = self.eval_grasp(grasp)
-      print "score = ", grasp[self.graspindices.get('performance')] 
-    
+      # print "score = ", grasp[self.graspindices.get('performance')] 
+      # 
+      counter = counter + 1
+      if (counter % 10) == 0:
+        print "calculating best noisy grasps: ", counter, " of ", len(self.grasps_ordered)
+
     # sort!
     order = np.argsort(self.grasps_ordered[:,self.graspindices.get('performance')[0]])
     order = order[::-1]
     self.grasps_ordered = self.grasps_ordered[order]
-    print self.grasps_ordered
-    import IPython
-    IPython.embed()
 
-  
+    raw_input('Press a key to view top 4 grasps')
+    #display top grasps
+    for x in xrange(0,4):
+      print "best grasp: ",x, "  =  ", self.grasps_ordered[x][self.graspindices.get('performance')]
+      self.show_grasp(self.grasps_ordered[x])
+      raw_input('Press a key to continue')
+
   # order the grasps - but instead of evaluating the grasp, evaluate random perturbations of the grasp 
   def order_grasps_noisy(self):
+    print "calculating best noisy grasps"
     self.grasps_ordered_noisy = self.grasps_ordered.copy() #you should change the order of self.grasps_ordered_noisy
-    #TODO: set the score with your evaluation function (over random samples) and sort
+    counter = 0
+    for grasp in self.grasps_ordered_noisy:
+      newGrasp = self.sample_random_grasp(grasp)
+      #average a set number of samples and use that as the score instead of just one
+      sum = 0
+      N = 10
+      for x in xrange(1,N):
+        sum = sum + self.eval_grasp(newGrasp)
 
+      #set equal to average
+      grasp[self.graspindices.get('performance')] = sum / N
+      # print "noisy score = ", grasp[self.graspindices.get('performance')] 
+      counter = counter + 1
+      if counter % 10 == 0:
+        print "calculating best noisy grasps: ", counter, " of ", len(self.grasps_ordered_noisy)
+
+    # sort!
+    orderNoisy = np.argsort(self.grasps_ordered_noisy[:,self.graspindices.get('performance')[0]])
+    orderNoisy = orderNoisy[::-1]
+    self.grasps_ordered_noisy = self.grasps_ordered_noisy[orderNoisy]
+
+    raw_input('Press a key to view top 4 grasps')
+    #display top grasps
+    for x in xrange(0,4):
+      print "best noisy grasp: ",x, "  =  ", self.grasps_ordered_noisy[x][self.graspindices.get('performance')]
+      self.show_grasp(self.grasps_ordered_noisy[x], 3)
+      raw_input('Press a key to continue')
 
   # function to evaluate grasps
   # returns a score, which is some metric of the grasp
@@ -151,10 +188,6 @@ class RoboHandler:
         # volume = math.sqrt(np.linalg.det(np.dot(G,G.T)))
 
         score = sigmaRatio
-
-        # import IPython
-        # IPython.embed()
-        # exit()
         
         return score #change this
 
@@ -193,16 +226,21 @@ class RoboHandler:
     grasp = grasp_in.copy()
 
     #sample random position
-    RAND_DIST_SIGMA = 0.01 #TODO you may want to change this
+    RAND_DIST_SIGMA = 0.01 #1 cm seems reasonable
     pos_orig = grasp[self.graspindices['igrasppos']]
-    #TODO set a random position
-
+    posChange = random.gauss(0, RAND_DIST_SIGMA)
+    grasp[self.graspindices['igrasppos']] = grasp[self.graspindices['igrasppos']] + posChange
 
     #sample random orientation
-    RAND_ANGLE_SIGMA = np.pi/24 #TODO you may want to change this
+    RAND_ANGLE_SIGMA = math.radians(3) #3 degrees sigma seems reasonable
     dir_orig = grasp[self.graspindices['igraspdir']]
     roll_orig = grasp[self.graspindices['igrasproll']]
-    #TODO set the direction and roll to be random
+
+    rollChange = random.gauss(0, RAND_ANGLE_SIGMA)
+    dirChange = random.gauss(0, RAND_ANGLE_SIGMA)
+
+    grasp[self.graspindices['igraspdir']] = grasp[self.graspindices['igraspdir']] + dirChange
+    grasp[self.graspindices['igrasproll']] = grasp[self.graspindices['igrasproll']] + rollChange
 
     return grasp
 
