@@ -65,6 +65,8 @@ class RoboHandler:
     self.manip = self.robot.GetActiveManipulator()
     self.end_effector = self.manip.GetEndEffector()
 
+    print "done initializing OpenRAVE"
+
   # problem specific initialization - load target and grasp module
   def problem_init(self):
     self.target_kinbody = self.env.ReadKinBodyURI('models/objects/champagne.iv')
@@ -79,15 +81,18 @@ class RoboHandler:
 
     # create a grasping module
     self.gmodel = openravepy.databases.grasping.GraspingModel(self.robot, self.target_kinbody)
-    
+
     # if you want to set options, e.g. friction
     options = openravepy.options
     options.friction = 0.1
     if not self.gmodel.load():
+      print "autogenerate"
       self.gmodel.autogenerate(options)
 
     self.graspindices = self.gmodel.graspindices
     self.grasps = self.gmodel.grasps
+
+    print "done initializing problem"
 
   
   # order the grasps - call eval grasp on each, set the 'performance' index, and sort
@@ -95,11 +100,15 @@ class RoboHandler:
     self.grasps_ordered = self.grasps.copy() #TODO: you should change the order of self.grasps_ordered
     for grasp in self.grasps_ordered:
       grasp[self.graspindices.get('performance')] = self.eval_grasp(grasp)
+      print "score = ", grasp[self.graspindices.get('performance')] 
     
     # sort!
     order = np.argsort(self.grasps_ordered[:,self.graspindices.get('performance')[0]])
     order = order[::-1]
     self.grasps_ordered = self.grasps_ordered[order]
+    print self.grasps_ordered
+    import IPython
+    IPython.embed()
 
   
   # order the grasps - but instead of evaluating the grasp, evaluate random perturbations of the grasp 
@@ -119,22 +128,40 @@ class RoboHandler:
 
         obj_position = self.gmodel.target.GetTransform()[0:3,3]
         # for each contact
-        G = np.array([]) #the wrench matrix
+        # 
+        cols = 0
+        G = np.zeros((6,len(contacts))) #the wrench matrix
         for c in contacts:
-          pos = c[0:3] - obj_position
+          pos = c[0:3] - obj_position 
           dir = -c[3:] #this is already a unit vector
+          # pos is position of the contact point
+          # dir is the force direction?
           
-          #TODO: fill G
+          new_col = np.concatenate([dir, np.cross(pos,dir)])
+
+          G[:,cols] = new_col
+          # print G
+          cols = cols + 1
         
         #TODO: use G to compute scrores as discussed in class
-        #u,s,v = np.linalg.svd(...)
+        u,s,v = np.linalg.svd(G)
+
+        sigmaRatio = s.min()/s.max()
+
+        # volume = math.sqrt(np.linalg.det(np.dot(G,G.T)))
+
+        score = sigmaRatio
+
+        # import IPython
+        # IPython.embed()
+        # exit()
         
-        return 0.0 #change this
+        return score #change this
 
       except openravepy.planning_error,e:
         #you get here if there is a failure in planning
         #example: if the hand is already intersecting the object at the initial position/orientation
-        return  0.00 # TODO you may want to change this
+        return  -1 # TODO you may want to change this
       
       #heres an interface in case you want to manipulate things more specifically
       #NOTE for this assignment, your solutions cannot make use of graspingnoise
