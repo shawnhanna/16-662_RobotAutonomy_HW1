@@ -120,7 +120,6 @@ class RoboHandler:
     for x in xrange(0,4):
       print "best grasp: ",x, "  =  ", self.grasps_ordered[x][self.graspindices.get('performance')]
       self.show_grasp(self.grasps_ordered[x])
-      raw_input('Press a key to continue')
 
   # order the grasps - but instead of evaluating the grasp, evaluate random perturbations of the grasp 
   def order_grasps_noisy(self):
@@ -131,9 +130,14 @@ class RoboHandler:
       newGrasp = self.sample_random_grasp(grasp)
       #average a set number of samples and use that as the score instead of just one
       sum = 0
-      N = 10
-      for x in xrange(1,N):
-        sum = sum + self.eval_grasp(newGrasp)
+      N = 1
+      for x in xrange(0,N):
+        new_value = self.eval_grasp(newGrasp)
+        if new_value == -1:
+          #invalid... do something about it
+          pass
+        else:
+          sum = sum + new_value
 
       #set equal to average
       grasp[self.graspindices.get('performance')] = sum / N
@@ -152,7 +156,6 @@ class RoboHandler:
     for x in xrange(0,4):
       print "best noisy grasp: ",x, "  =  ", self.grasps_ordered_noisy[x][self.graspindices.get('performance')]
       self.show_grasp(self.grasps_ordered_noisy[x], 3)
-      raw_input('Press a key to continue')
 
   # function to evaluate grasps
   # returns a score, which is some metric of the grasp
@@ -261,6 +264,7 @@ class RoboHandler:
             self.gmodel.robot.SetTransform(finalconfig[1])
             self.env.UpdatePublishedBodies()
             time.sleep(delay)
+            raw_input('Press a key to continue')
         except openravepy.planning_error,e:
           print 'bad grasp!',e
 
