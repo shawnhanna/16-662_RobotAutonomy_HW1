@@ -119,7 +119,7 @@ class RoboHandler:
     #display top grasps
     for x in xrange(0,4):
       print "best grasp: ",x, "  =  ", self.grasps_ordered[x][self.graspindices.get('performance')]
-      self.show_grasp(self.grasps_ordered[x])
+      self.show_grasp(self.grasps_ordered[x],0)
 
   # order the grasps - but instead of evaluating the grasp, evaluate random perturbations of the grasp 
   def order_grasps_noisy(self):
@@ -155,7 +155,7 @@ class RoboHandler:
     #display top grasps
     for x in xrange(0,4):
       print "best noisy grasp: ",x, "  =  ", self.grasps_ordered_noisy[x][self.graspindices.get('performance')]
-      self.show_grasp(self.grasps_ordered_noisy[x], 3)
+      self.show_grasp(self.grasps_ordered_noisy[x],0)
 
   # function to evaluate grasps
   # returns a score, which is some metric of the grasp
@@ -168,7 +168,6 @@ class RoboHandler:
 
         obj_position = self.gmodel.target.GetTransform()[0:3,3]
         # for each contact
-        # 
         cols = 0
         G = np.zeros((6,len(contacts))) #the wrench matrix
         for c in contacts:
